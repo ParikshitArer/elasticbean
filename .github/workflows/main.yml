@@ -1,0 +1,46 @@
+name: Deploy Flask API to Elastic Beanstalk
+
+on:
+push:
+branches:
+- main
+workflow_dispatch:
+
+permissions:
+id-token: write
+contents: read
+
+jobs:
+deploy:
+runs-on: ubuntu-latest
+
+```
+steps:
+  - name: Checkout repository
+    uses: actions/checkout@v4
+
+  - name: Configure AWS credentials
+    uses: aws-actions/configure-aws-credentials@v4
+    with:
+      role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+      aws-region: ap-south-1
+
+  - name: Package application
+    run: zip -r task-management.zip app.py requirements.txt Procfile
+
+  - name: Deploy to Elastic Beanstalk
+    env:
+      VERSION_LABEL: github-${{ github.run_number }}
+    run: |
+      aws s3 cp task-management.zip \
+        s3://elasticbeanstalk-ap-south-1-343644157719/task-management.zip
+
+      aws elasticbeanstalk create-application-version \
+        --application-name task-management-app \
+        --version-label "$VERSION_LABEL" \
+        --source-bundle S3Bucket="elasticbeanstalk-ap-south-1-343644157719",S3Key="task-management.zip"
+
+      aws elasticbeanstalk update-environment \
+        --environment-name task-management-env \
+        --version-label "$VERSION_LABEL"
+```
